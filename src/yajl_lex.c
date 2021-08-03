@@ -28,18 +28,20 @@ tokToStr(yajl_tok tok)
 {
     switch (tok) {
         case yajl_tok_bool: return "bool";
-        case yajl_tok_colon: return "colon";
+        case yajl_tok_equal: return "equal";
+        case yajl_tok_semicolon: return "semicolon";
         case yajl_tok_comma: return "comma";
         case yajl_tok_eof: return "eof";
         case yajl_tok_error: return "error";
-        case yajl_tok_left_brace: return "brace";
-        case yajl_tok_left_bracket: return "bracket";
+        case yajl_tok_left_parenthesis: return "left parenthesis";
+        case yajl_tok_left_brace: return "left brace";
         case yajl_tok_null: return "null";
         case yajl_tok_integer: return "integer";
         case yajl_tok_double: return "double";
-        case yajl_tok_right_brace: return "brace";
-        case yajl_tok_right_bracket: return "bracket";
+        case yajl_tok_right_parenthesis: return "right parenthesis";
+        case yajl_tok_right_brace: return "right brace";
         case yajl_tok_string: return "string";
+        case yajl_tok_unquoted_string: return "unquoted_string";
         case yajl_tok_string_with_escapes: return "string_with_escapes";
     }
     return "unknown";
@@ -128,54 +130,56 @@ yajl_lex_free(yajl_lexer lxr)
  * VHC - valid hex char
  * NFP - needs further processing (from a string scanning perspective)
  * NUC - needs utf8 checking when enabled (from a string scanning perspective)
+ * USC - valid unquoted string char
  */
 #define VEC 0x01
 #define IJC 0x02
 #define VHC 0x04
 #define NFP 0x08
 #define NUC 0x10
+#define USC 0x20
 
 static const char charLookupTable[256] =
 {
-/*00*/ IJC    , IJC    , IJC    , IJC    , IJC    , IJC    , IJC    , IJC    ,
-/*08*/ IJC    , IJC    , IJC    , IJC    , IJC    , IJC    , IJC    , IJC    ,
-/*10*/ IJC    , IJC    , IJC    , IJC    , IJC    , IJC    , IJC    , IJC    ,
-/*18*/ IJC    , IJC    , IJC    , IJC    , IJC    , IJC    , IJC    , IJC    ,
+/*00*/ IJC        , IJC        , IJC        , IJC        , IJC        , IJC        , IJC        , IJC        ,
+/*08*/ IJC        , IJC        , IJC        , IJC        , IJC        , IJC        , IJC        , IJC        ,
+/*10*/ IJC        , IJC        , IJC        , IJC        , IJC        , IJC        , IJC        , IJC        ,
+/*18*/ IJC        , IJC        , IJC        , IJC        , IJC        , IJC        , IJC        , IJC        ,
 
-/*20*/ 0      , 0      , NFP|VEC|IJC, 0      , 0      , 0      , 0      , 0      ,
-/*28*/ 0      , 0      , 0      , 0      , 0      , 0      , 0      , VEC    ,
-/*30*/ VHC    , VHC    , VHC    , VHC    , VHC    , VHC    , VHC    , VHC    ,
-/*38*/ VHC    , VHC    , 0      , 0      , 0      , 0      , 0      , 0      ,
+/*20*/ 0          , 0          , NFP|VEC|IJC, 0          , USC        , 0          , 0          , 0          ,
+/*28*/ 0          , 0          , 0          , 0          , 0          , USC        , USC        , VEC|USC    ,
+/*30*/ VHC|USC    , VHC|USC    , VHC|USC    , VHC|USC    , VHC|USC    , VHC|USC    , VHC|USC    , VHC|USC    ,
+/*38*/ VHC|USC    , VHC|USC    , USC        , 0          , 0          , 0          , 0          , 0          ,
 
-/*40*/ 0      , VHC    , VHC    , VHC    , VHC    , VHC    , VHC    , 0      ,
-/*48*/ 0      , 0      , 0      , 0      , 0      , 0      , 0      , 0      ,
-/*50*/ 0      , 0      , 0      , 0      , 0      , 0      , 0      , 0      ,
-/*58*/ 0      , 0      , 0      , 0      , NFP|VEC|IJC, 0      , 0      , 0      ,
+/*40*/ 0          , VHC|USC    , VHC|USC    , VHC|USC    , VHC|USC    , VHC|USC    , VHC|USC    , USC        ,
+/*48*/ USC        , USC        , USC        , USC        , USC        , USC        , USC        , USC        ,
+/*50*/ USC        , USC        , USC        , USC        , USC        , USC        , USC        , USC        ,
+/*58*/ USC        , USC        , USC        , 0          , NFP|VEC|IJC, 0          , 0          , USC        ,
 
-/*60*/ 0      , VHC    , VEC|VHC, VHC    , VHC    , VHC    , VEC|VHC, 0      ,
-/*68*/ 0      , 0      , 0      , 0      , 0      , 0      , VEC    , 0      ,
-/*70*/ 0      , 0      , VEC    , 0      , VEC    , 0      , 0      , 0      ,
-/*78*/ 0      , 0      , 0      , 0      , 0      , 0      , 0      , 0      ,
+/*60*/ 0          , VHC|USC    , VEC|VHC|USC, VHC|USC    , VHC|USC    , VHC|USC    , VEC|VHC|USC, USC        ,
+/*68*/ USC        , USC        , USC        , USC        , USC        , USC        , VEC|USC    , USC        ,
+/*70*/ USC        , USC        , VEC|USC    , USC        , VEC|USC    , USC        , USC        , USC        ,
+/*78*/ USC        , USC        , USC        , 0          , 0          , 0          , 0          , 0          ,
 
-       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
-       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
-       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
-       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+/*80*/ NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        ,
+/*88*/ NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        ,
+/*90*/ NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        ,
+/*98*/ NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        ,
 
-       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
-       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
-       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
-       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+/*a0*/ NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        ,
+/*a8*/ NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        ,
+/*b0*/ NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        ,
+/*b8*/ NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        ,
 
-       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
-       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
-       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
-       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
+/*c0*/ NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        ,
+/*c8*/ NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        ,
+/*d0*/ NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        ,
+/*d8*/ NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        ,
 
-       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
-       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
-       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    ,
-       NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC    , NUC
+/*e0*/ NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        ,
+/*e8*/ NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        ,
+/*f0*/ NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        ,
+/*f8*/ NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        , NUC        ,
 };
 
 /** process a variable length utf8 encoded codepoint.
@@ -365,6 +369,58 @@ yajl_lex_string(yajl_lexer lexer, const unsigned char * jsonText,
     return tok;
 }
 
+static size_t
+yajl_unquoted_string_scan(const unsigned char * buf, size_t len)
+{
+    size_t skip = 0;
+    while (skip < len && charLookupTable[*buf] & USC)
+    {
+        skip++;
+        buf++;
+    }
+
+    return skip;
+}
+
+static yajl_tok
+yajl_lex_unquoted_string(yajl_lexer lexer, const unsigned char * jsonText,
+                size_t jsonTextLen, size_t * offset)
+{
+    yajl_tok tok = yajl_tok_error;
+
+    for (;;) {
+        /* now jump into a faster scanning routine to skip as much
+         * of the buffers as possible */
+        {
+            const unsigned char * p;
+            size_t len;
+
+            if ((lexer->bufInUse && yajl_buf_len(lexer->buf) &&
+                 lexer->bufOff < yajl_buf_len(lexer->buf)))
+            {
+                p = ((const unsigned char *) yajl_buf_data(lexer->buf) +
+                     (lexer->bufOff));
+                len = yajl_buf_len(lexer->buf) - lexer->bufOff;
+                lexer->bufOff += yajl_unquoted_string_scan(p, len);
+            }
+
+			if (*offset < jsonTextLen)
+            {
+                p = jsonText + *offset;
+                len = jsonTextLen - *offset;
+                *offset += yajl_unquoted_string_scan(p, len);
+            }
+        }
+
+		tok = yajl_tok_unquoted_string;
+
+        STR_CHECK_EOF;
+
+finish_string_lex:
+		return tok;
+	}
+}
+
 #define RETURN_IF_EOF if (*offset >= jsonTextLen) return yajl_tok_eof;
 
 static yajl_tok
@@ -519,95 +575,117 @@ yajl_lex_lex(yajl_lexer lexer, const unsigned char * jsonText,
 
         switch (c) {
             case '{':
-                tok = yajl_tok_left_bracket;
-                goto lexed;
-            case '}':
-                tok = yajl_tok_right_bracket;
-                goto lexed;
-            case '[':
                 tok = yajl_tok_left_brace;
                 goto lexed;
-            case ']':
+            case '}':
                 tok = yajl_tok_right_brace;
+                goto lexed;
+            case '(':
+                tok = yajl_tok_left_parenthesis;
+                goto lexed;
+            case ')':
+                tok = yajl_tok_right_parenthesis;
                 goto lexed;
             case ',':
                 tok = yajl_tok_comma;
                 goto lexed;
-            case ':':
-                tok = yajl_tok_colon;
+            case '=':
+                tok = yajl_tok_equal;
+                goto lexed;
+            case ';':
+                tok = yajl_tok_semicolon;
                 goto lexed;
             case '\t': case '\n': case '\v': case '\f': case '\r': case ' ':
                 startOffset++;
                 break;
-            case 't': {
-                const char * want = "rue";
-                do {
-                    if (*offset >= jsonTextLen) {
-                        tok = yajl_tok_eof;
-                        goto lexed;
-                    }
-                    c = readChar(lexer, jsonText, offset);
-                    if (c != *want) {
-                        unreadChar(lexer, offset);
-                        lexer->error = yajl_lex_invalid_string;
-                        tok = yajl_tok_error;
-                        goto lexed;
-                    }
-                } while (*(++want));
-                tok = yajl_tok_bool;
-                goto lexed;
-            }
-            case 'f': {
-                const char * want = "alse";
-                do {
-                    if (*offset >= jsonTextLen) {
-                        tok = yajl_tok_eof;
-                        goto lexed;
-                    }
-                    c = readChar(lexer, jsonText, offset);
-                    if (c != *want) {
-                        unreadChar(lexer, offset);
-                        lexer->error = yajl_lex_invalid_string;
-                        tok = yajl_tok_error;
-                        goto lexed;
-                    }
-                } while (*(++want));
-                tok = yajl_tok_bool;
-                goto lexed;
-            }
-            case 'n': {
-                const char * want = "ull";
-                do {
-                    if (*offset >= jsonTextLen) {
-                        tok = yajl_tok_eof;
-                        goto lexed;
-                    }
-                    c = readChar(lexer, jsonText, offset);
-                    if (c != *want) {
-                        unreadChar(lexer, offset);
-                        lexer->error = yajl_lex_invalid_string;
-                        tok = yajl_tok_error;
-                        goto lexed;
-                    }
-                } while (*(++want));
-                tok = yajl_tok_null;
-                goto lexed;
-            }
+			case 'a': case 'b': case 'c': case 'd': case 'e': case 'f': case 'g': case 'h': case 'i': case 'j': case 'k': case 'l': case 'm': case 'n': case 'o': case 'p': case 'q': case 'r': case 's': case 't': case 'u': case 'v': case 'w': case 'x': case 'y': case 'z': case 'A': case 'B': case 'C': case 'D': case 'E': case 'F': case 'G': case 'H': case 'I': case 'J': case 'K': case 'L': case 'M': case 'N': case 'O': case 'P': case 'Q': case 'R': case 'S': case 'T': case 'U': case 'V': case 'W': case 'X': case 'Y': case 'Z': case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8': case '9': case '_': case '$':case ':': case '.': case '-':
+				 tok = yajl_lex_unquoted_string(lexer, (const unsigned char *) jsonText, jsonTextLen, offset);
+				 goto lexed;
+            // case 't': {
+            //     const char * want = "rue";
+            //     do {
+            //         if (*offset >= jsonTextLen) {
+            //             tok = yajl_tok_eof;
+            //             goto lexed;
+            //         }
+            //         c = readChar(lexer, jsonText, offset);
+            //         if (c != *want) {
+            //             unreadChar(lexer, offset);
+            //             lexer->error = yajl_lex_invalid_string;
+            //             tok = yajl_tok_error;
+            //             goto lexed;
+            //         }
+            //     } while (*(++want));
+            //     tok = yajl_tok_bool;
+            //     goto lexed;
+            // }
+            // case 'f': {
+            //     const char * want = "alse";
+            //     do {
+            //         if (*offset >= jsonTextLen) {
+            //             tok = yajl_tok_eof;
+            //             goto lexed;
+            //         }
+            //         c = readChar(lexer, jsonText, offset);
+            //         if (c != *want) {
+            //             unreadChar(lexer, offset);
+            //             lexer->error = yajl_lex_invalid_string;
+            //             tok = yajl_tok_error;
+            //             goto lexed;
+            //         }
+            //     } while (*(++want));
+            //     tok = yajl_tok_bool;
+            //     goto lexed;
+            // }
+            // case 'n': {
+            //     const char * want = "ull";
+            //     do {
+            //         if (*offset >= jsonTextLen) {
+            //             tok = yajl_tok_eof;
+            //             goto lexed;
+            //         }
+            //         c = readChar(lexer, jsonText, offset);
+            //         if (c != *want) {
+            //             unreadChar(lexer, offset);
+            //             lexer->error = yajl_lex_invalid_string;
+            //             tok = yajl_tok_error;
+            //             goto lexed;
+            //         }
+            //     } while (*(++want));
+            //     tok = yajl_tok_null;
+            //     goto lexed;
+            // }
             case '"': {
                 tok = yajl_lex_string(lexer, (const unsigned char *) jsonText,
                                       jsonTextLen, offset);
                 goto lexed;
             }
-            case '-':
-            case '0': case '1': case '2': case '3': case '4':
-            case '5': case '6': case '7': case '8': case '9': {
-                /* integer parsing wants to start from the beginning */
+            // case '-':
+            // case '0': case '1': case '2': case '3': case '4':
+            // case '5': case '6': case '7': case '8': case '9': {
+            //     /* integer parsing wants to start from the beginning */
+            //     unreadChar(lexer, offset);
+            //     tok = yajl_lex_number(lexer, (const unsigned char *) jsonText,
+            //                           jsonTextLen, offset);
+            //     goto lexed;
+            // }
+            case '/': {
+
+                if (*offset >= jsonTextLen) {
+                    tok = yajl_tok_eof;
+                    goto lexed;
+                }
+
+				unsigned char next_c = readChar(lexer, jsonText, offset);
+
+				// Lex unquoted string if this isn't a comment
+				if (next_c != '/' && next_c != '*') {
+					tok = yajl_lex_unquoted_string(lexer, (const unsigned char *) jsonText, jsonTextLen, offset);
+					goto lexed;
+				}
+
                 unreadChar(lexer, offset);
-                tok = yajl_lex_number(lexer, (const unsigned char *) jsonText,
-                                      jsonTextLen, offset);
-                goto lexed;
-            }
-            case '/':
+
                 /* hey, look, a probable comment!  If comments are disabled
                  * it's an error. */
                 if (!lexer->allowComments) {
@@ -635,6 +713,7 @@ yajl_lex_lex(yajl_lexer lexer, const unsigned char * jsonText,
                 }
                 /* hit error or eof, bail */
                 goto lexed;
+			}
             default:
                 lexer->error = yajl_lex_invalid_char;
                 tok = yajl_tok_error;
@@ -668,6 +747,8 @@ yajl_lex_lex(yajl_lexer lexer, const unsigned char * jsonText,
         assert(*outLen >= 2);
         (*outBuf)++;
         *outLen -= 2;
+    } else if (tok == yajl_tok_unquoted_string) {
+    	tok = yajl_tok_string;
     }
 
 

@@ -21,15 +21,16 @@
 
 typedef enum {
     yajl_tok_bool,
-    yajl_tok_colon,
+    yajl_tok_equal,
+    yajl_tok_semicolon,
     yajl_tok_comma,
     yajl_tok_eof,
     yajl_tok_error,
+    yajl_tok_left_parenthesis,
     yajl_tok_left_brace,
-    yajl_tok_left_bracket,
     yajl_tok_null,
+    yajl_tok_right_parenthesis,
     yajl_tok_right_brace,
-    yajl_tok_right_bracket,
 
     /* we differentiate between integers and doubles to allow the
      * parser to interpret the number without re-scanning */
@@ -39,6 +40,7 @@ typedef enum {
     /* we differentiate between strings which require further processing,
      * and strings that do not */
     yajl_tok_string,
+    yajl_tok_unquoted_string,
     yajl_tok_string_with_escapes,
 
     /* comment tokens are not currently returned to the parser, ever */
